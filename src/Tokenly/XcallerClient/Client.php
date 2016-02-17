@@ -17,7 +17,16 @@ class Client
         $this->queue_manager    = $queue_manager;
     }
 
-    public function sendWebhook($payload, $endpoint, $id=null, $api_token=null, $api_secret=null) {
+    public function sendWebhookWithReturn($payload, $endpoint, $id=null, $api_token=null, $api_secret=null) {
+        return $this->sendWebhook($payload, $endpoint, $id, $api_token, $api_secret);
+    }
+
+    public function sendWebhookWithoutReturnQueue($payload, $endpoint, $id=null, $api_token=null, $api_secret=null) {
+        $meta_overrides = ['returnTubeName' => false,];
+        return $this->sendWebhook($payload, $endpoint, $id, $api_token, $api_secret, $meta_overrides);
+    }
+
+    public function sendWebhook($payload, $endpoint, $id=null, $api_token=null, $api_secret=null, $meta_overrides=null) {
 
         if (is_array($payload)) { $payload = $this->encodePayload($payload); }
 
@@ -27,17 +36,20 @@ class Client
             $signature = null;
         }
 
+        $meta = [
+            'id'        => ($id !== null ? $id : round(microtime() * 1000)),
+            'endpoint'  => $endpoint,
+            'timestamp' => time(),
+            'apiToken'  => $api_token,
+            'signature' => $signature,
+            'attempt'   => 0,
+        ];
+        if ($meta_overrides !== null) {
+            $meta = array_merge($meta, $meta_overrides);
+        }
 
         $notification_entry = [
-            'meta' => [
-                'id'        => ($id !== null ? $id : round(microtime() * 1000)),
-                'endpoint'  => $endpoint,
-                'timestamp' => time(),
-                'apiToken'  => $api_token,
-                'signature' => $signature,
-                'attempt'   => 0,
-            ],
-
+            'meta'    => $meta,
             'payload' => $payload,
         ];
 

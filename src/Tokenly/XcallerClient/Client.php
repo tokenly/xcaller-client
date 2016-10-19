@@ -6,7 +6,7 @@ use Exception;
 
 /*
 * Client
-* A Counterparty client
+* A client for sending webhook notifications with xcaller
 */
 class Client
 {
@@ -17,8 +17,12 @@ class Client
         $this->queue_manager    = $queue_manager;
     }
 
-    public function sendWebhookWithReturn($payload, $endpoint, $id=null, $api_token=null, $api_secret=null) {
-        return $this->sendWebhook($payload, $endpoint, $id, $api_token, $api_secret);
+    public function sendWebhookWithReturn($payload, $endpoint, $id=null, $api_token=null, $api_secret=null, $return_job_name=null, $meta_overrides=null) {
+        if (!is_array($meta_overrides)) { $meta_overrides = []; }
+        if ($return_job_name !== null) {
+            $meta_overrides['returnJobName'] = $return_job_name;
+        }
+        return $this->sendWebhook($payload, $endpoint, $id, $api_token, $api_secret, $meta_overrides);
     }
 
     public function sendWebhookWithoutReturnQueue($payload, $endpoint, $id=null, $api_token=null, $api_secret=null) {
@@ -27,7 +31,6 @@ class Client
     }
 
     public function sendWebhook($payload, $endpoint, $id=null, $api_token=null, $api_secret=null, $meta_overrides=null) {
-
         if (is_array($payload)) { $payload = $this->encodePayload($payload); }
 
         if ($api_secret !== null) {
@@ -57,6 +60,13 @@ class Client
         if ($api_secret === null) { unset($notification_entry['meta']['signature']); }
 
         // put notification in the queue
+        $this->_loadNotificationIntoQueue($notification_entry);
+    }
+
+    // ------------------------------------------------------------------------
+    
+    // public for testing purposes
+    public function _loadNotificationIntoQueue($notification_entry) {
         $this->queue_manager
             ->connection($this->queue_connection)
             ->pushRaw(json_encode($notification_entry), $this->queue_name);
